@@ -112,11 +112,18 @@ jobs:
         run: |
           set -euo pipefail
           WORK_DIR="$RUNNER_TEMP/nexus-build"
-          curl -sS -f -X POST "$NEXUS_PUBLISHER_URL/api/internal/deploy" \
+          status="$(curl -sS -o "$WORK_DIR/deploy-response.json" -w '%{http_code}' \
+            -X POST "$NEXUS_PUBLISHER_URL/api/internal/deploy" \
             -H "Authorization: Bearer ${{ steps.oidc.outputs.token }}" \
             -F "manifest=@${WORK_DIR}/artifact/manifest.json;type=application/json" \
             -F "artifact=@${WORK_DIR}/artifact.zip;type=application/zip" \
-            --max-time 120
+            --max-time 120)"
+          echo "publisher HTTP ${status}"
+          cat "$WORK_DIR/deploy-response.json" || true
+          if [ "${status}" != "200" ]; then
+            echo "deploy failed with HTTP ${status}" >&2
+            exit 1
+          fi
 
       - name: Report failure
         if: failure()
