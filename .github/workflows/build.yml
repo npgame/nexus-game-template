@@ -1,0 +1,144 @@
+# 固定构建 workflow：由平台写入，游戏作者不应修改。
+# 租户 token 只有 contents: write，GitHub 会拒绝任何 .github/workflows/** 变更，
+# 因此这个文件只能由平台侧（拥有 workflows: write 的 admin token）更新。
+# 修改时同步模板仓库和已生成的游戏仓库。
+name: nexus-build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: nexus-build-${{ github.repository }}
+  cancel-in-progress: true
+
+env:
+  NEXUS_PUBLISHER_URL: https://nexus-dev.apiservice.autolab-server.site
+  NEXUS_OIDC_AUDIENCE: nexus-publisher
+  NEXUS_WRANGLER_VERSION: "4.65.0"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 8.15.1
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Bundle worker
+        run: |
+          set -euo pipefail
+          WORK_DIR="$RUNNER_TEMP/nexus-build"
+          mkdir -p "$WORK_DIR"
+          # 构建配置由 workflow 内联生成，不读取仓库里的 wrangler.toml。
+          cat > "$WORK_DIR/wrangler.toml" <<EOF
+          name = "unused"
+          main = "${GITHUB_WORKSPACE}/worker/src/index.ts"
+          compatibility_date = "2025-03-01"
+          compatibility_flags = ["nodejs_compat"]
+
+          [assets]
+          directory = "${GITHUB_WORKSPACE}/worker/public"
+          binding = "ASSETS"
+          EOF
+          pnpm dlx "wrangler@${NEXUS_WRANGLER_VERSION}" deploy --dry-run \
+            --config "$WORK_DIR/wrangler.toml" \
+            --outdir "$WORK_DIR/bundle"
+          test -f "$WORK_DIR/bundle/index.js"
+
+      - name: Package artifact
+        run: |
+          set -euo pipefail
+          WORK_DIR="$RUNNER_TEMP/nexus-build"
+          OUT="$WORK_DIR/artifact"
+          rm -rf "$OUT"
+          mkdir -p "$OUT/public"
+          cp "$WORK_DIR/bundle/index.js" "$OUT/index.js"
+          cp -R worker/public/. "$OUT/public/"
+
+          game_id=""
+          if [ -f nexus.game.json ]; then
+            game_id="$(jq -r '.id // empty' nexus.game.json)"
+          fi
+
+          jq -n \
+            --arg gameId "$game_id" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg commitSha "$GITHUB_SHA" \
+            --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{schemaVersion: 1, gameId: $gameId, repository: $repository, commitSha: $commitSha, entry: "index.js", assetsDir: "public", builtAt: $builtAt}' \
+            > "$OUT/manifest.json"
+
+          (cd "$OUT" && zip -qr "$WORK_DIR/artifact.zip" manifest.json index.js public)
+
+      - name: Get OIDC token
+        id: oidc
+        run: |
+          set -euo pipefail
+          token="$(curl -sS -f \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${NEXUS_OIDC_AUDIENCE}" \
+            | jq -r '.value // empty')"
+          if [ -z "$token" ]; then
+            echo "Failed to obtain GitHub OIDC token" >&2
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Upload to publisher
+        run: |
+          set -euo pipefail
+          WORK_DIR="$RUNNER_TEMP/nexus-build"
+          curl -sS -f -X POST "$NEXUS_PUBLISHER_URL/api/internal/deploy" \
+            -H "Authorization: Bearer ${{ steps.oidc.outputs.token }}" \
+            -F "manifest=@${WORK_DIR}/artifact/manifest.json;type=application/json" \
+            -F "artifact=@${WORK_DIR}/artifact.zip;type=application/zip" \
+            --max-time 120
+
+      - name: Report failure
+        if: failure()
+        run: |
+          set -uo pipefail
+          token="$(curl -sS -f \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${NEXUS_OIDC_AUDIENCE}" \
+            2>/dev/null | jq -r '.value // empty')"
+          if [ -z "${token:-}" ]; then
+            echo "No OIDC token, skip failure report" >&2
+            exit 0
+          fi
+          jq -n \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg commitSha "$GITHUB_SHA" \
+            --arg ref "$GITHUB_REF" \
+            --arg runId "$GITHUB_RUN_ID" \
+            --arg runAttempt "$GITHUB_RUN_ATTEMPT" \
+            '{repository: $repository, commitSha: $commitSha, ref: $ref, runId: $runId, runAttempt: $runAttempt}' \
+            | curl -sS -X POST "$NEXUS_PUBLISHER_URL/api/internal/deploy/failed" \
+                -H "Authorization: Bearer $token" \
+                -H "Content-Type: application/json" \
+                --data-binary @- \
+                --max-time 30 || true
