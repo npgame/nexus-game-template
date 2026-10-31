@@ -1,0 +1,14 @@
+# 仅用于本地开发 / 手动部署。
+# 注意：publisher 的固定 workflow 不读取这个文件，部署配置由 workflow 内联生成；
+# 在这里修改 name / assets / compatibility 等不会影响线上构建。
+name = "nexus-game-template-worker"
+main = "src/index.ts"
+compatibility_date = "2025-03-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[observability]
+enabled = true

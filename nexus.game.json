@@ -1,0 +1,7 @@
+{
+  "id": "template",
+  "name": "Nexus Game Template",
+  "platform": "nexus-playground",
+  "schemaVersion": 1,
+  "repo": "npgame/nexus-game-template"
+}

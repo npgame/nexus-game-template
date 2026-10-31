@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+
+# vite 生成的 UI 产物
+worker/public/_ui.js
+worker/public/_ui.js.map
+worker/public/style.css
