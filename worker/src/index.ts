@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import type { GameState, Action, InitContext } from '@nexusgame/game-sdk';
+import type { Action, InitContext } from '@nexusgame/game-sdk';
 import logic from '../../logic/index';
+import type { TemplateState } from '../../logic/index';
 
 type AssetFetcher = { fetch: (request: Request) => Promise<Response> };
 
@@ -70,7 +71,7 @@ app.post('/init', async (c) => {
 });
 
 app.post('/legal-actions', async (c) => {
-  const body = await c.req.json<{ state: GameState; roleId: string }>();
+  const body = await c.req.json<{ state: TemplateState; roleId: string }>();
   try {
     return c.json(logic.getLegalActions(body.state, body.roleId));
   } catch (error: any) {
@@ -79,7 +80,7 @@ app.post('/legal-actions', async (c) => {
 });
 
 app.post('/action', async (c) => {
-  const body = await c.req.json<{ state: GameState; action: Action }>();
+  const body = await c.req.json<{ state: TemplateState; action: Action }>();
   try {
     // 定义了 actionSchemas 的逻辑会通过 validateAndApply 自动做 Zod 校验
     const result =
@@ -93,7 +94,7 @@ app.post('/action', async (c) => {
 });
 
 app.post('/is-terminal', async (c) => {
-  const body = await c.req.json<{ state: GameState }>();
+  const body = await c.req.json<{ state: TemplateState }>();
   try {
     const isTerminal = logic.isTerminal(body.state);
     const winners = isTerminal ? logic.getWinners(body.state) : null;
@@ -105,7 +106,7 @@ app.post('/is-terminal', async (c) => {
 
 app.post('/perspective', async (c) => {
   const body = await c.req.json<{
-    state: GameState;
+    state: TemplateState;
     roleId: string;
     wholeHistory: any[];
     diffHistory: any[];
@@ -138,7 +139,7 @@ app.post('/state-prompt', async (c) => {
 });
 
 app.post('/current-role', async (c) => {
-  const body = await c.req.json<{ state: GameState }>();
+  const body = await c.req.json<{ state: TemplateState }>();
   try {
     return c.json({ roleId: logic.getCurrentRole(body.state) });
   } catch (error: any) {

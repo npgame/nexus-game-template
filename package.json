@@ -7,12 +7,12 @@
     "build": "pnpm build:logic && pnpm build:ui",
     "build:logic": "tsup",
     "build:ui": "vite build -c vite.config.ui.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p worker/tsconfig.json",
     "dev": "wrangler dev -c worker/wrangler.toml",
     "deploy": "wrangler deploy -c worker/wrangler.toml"
   },
   "dependencies": {
-    "@nexusgame/game-sdk": "^1.0.0"
+    "@nexusgame/game-sdk": "^1.1.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",
