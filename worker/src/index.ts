@@ -1,6 +1,13 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import type { Action, InitContext } from '@nexusgame/game-sdk';
+import {
+  handleApply,
+  handleInit,
+  handlePerspective,
+  handleTurnState,
+  type GameEvent,
+  type InitContext,
+} from '@nexusgame/game-sdk';
 import logic from '../../logic/index';
 import type { TemplateState } from '../../logic/index';
 
@@ -61,65 +68,38 @@ app.get('/__nexus_worker_verify', (c) =>
   c.text(WORKER_VERIFY_SIGNATURE, 200, { 'Content-Type': 'text/plain; charset=utf-8' })
 );
 
+// /init 和 /apply 会顺带返回 turnState；/turn-state 用于恢复、回溯和调试。
 app.post('/init', async (c) => {
   const body = await c.req.json<InitContext>();
   try {
-    return c.json(logic.initState(body));
+    return c.json(handleInit(logic, body));
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
 });
 
-app.post('/legal-actions', async (c) => {
-  const body = await c.req.json<{ state: TemplateState; roleId: string }>();
-  try {
-    return c.json(logic.getLegalActions(body.state, body.roleId));
-  } catch (error: any) {
-    return c.json({ error: error.message }, 400);
-  }
-});
-
-app.post('/action', async (c) => {
-  const body = await c.req.json<{ state: TemplateState; action: Action }>();
-  try {
-    // 定义了 actionSchemas 的逻辑会通过 validateAndApply 自动做 Zod 校验
-    const result =
-      'validateAndApply' in logic
-        ? (logic as any).validateAndApply(body.state, body.action)
-        : logic.applyAction(body.state, body.action);
-    return c.json(result);
-  } catch (error: any) {
-    return c.json({ error: error.message }, 400);
-  }
-});
-
-app.post('/is-terminal', async (c) => {
+app.post('/turn-state', async (c) => {
   const body = await c.req.json<{ state: TemplateState }>();
   try {
-    const isTerminal = logic.isTerminal(body.state);
-    const winners = isTerminal ? logic.getWinners(body.state) : null;
-    return c.json({ isTerminal, winners });
+    return c.json(handleTurnState(logic, body.state));
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+app.post('/apply', async (c) => {
+  const body = await c.req.json<{ state: TemplateState; event: GameEvent }>();
+  try {
+    return c.json(handleApply(logic, body.state, body.event));
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
 });
 
 app.post('/perspective', async (c) => {
-  const body = await c.req.json<{
-    state: TemplateState;
-    roleId: string;
-    wholeHistory: any[];
-    diffHistory: any[];
-  }>();
+  const body = await c.req.json<{ state: TemplateState; roleId: string | null }>();
   try {
-    return c.json(
-      logic.toRolePerspective(
-        body.state,
-        body.roleId,
-        body.wholeHistory || [],
-        body.diffHistory || []
-      )
-    );
+    return c.json(handlePerspective(logic, body.state, body.roleId));
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
@@ -133,15 +113,6 @@ app.post('/state-prompt', async (c) => {
         ? logic.generateStatePrompt(body.perspective)
         : undefined;
     return c.json({ statePrompt });
-  } catch (error: any) {
-    return c.json({ error: error.message }, 400);
-  }
-});
-
-app.post('/current-role', async (c) => {
-  const body = await c.req.json<{ state: TemplateState }>();
-  try {
-    return c.json({ roleId: logic.getCurrentRole(body.state) });
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }

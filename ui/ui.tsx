@@ -11,7 +11,9 @@ const TemplateUI: React.FC<GameUIProps<TemplateState>> = ({
   metadata,
 }) => {
   const { current_state, your_role } = perspective;
+  // 观战者没有 roleId，your_role.identity 为 'Spectator'。
   const roleId = metadata?.roleId ?? your_role.identity;
+  const isSpectator = your_role.identity === 'Spectator';
   const passAction = perspective.action_space_definition.actions.find(
     (action) => action.action_id === 'pass'
   );
@@ -20,7 +22,7 @@ const TemplateUI: React.FC<GameUIProps<TemplateState>> = ({
     <div className={styles.container}>
       <div className={styles.board}>
         <h2>Nexus Game Template</h2>
-        <p>你的角色：{roleId}</p>
+        <p>你的角色：{isSpectator ? '观战' : roleId}</p>
         <p>当前回合：{current_state.turn}</p>
         <p>当前行动：{current_state.currentRole}</p>
 
@@ -33,7 +35,7 @@ const TemplateUI: React.FC<GameUIProps<TemplateState>> = ({
             结束回合
           </button>
         ) : (
-          <p>{perspective.message ?? '等待其他玩家行动'}</p>
+          <p>{isSpectator ? '观战中' : '等待其他玩家行动'}</p>
         )}
       </div>
     </div>
