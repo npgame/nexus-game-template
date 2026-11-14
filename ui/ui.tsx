@@ -1,12 +1,12 @@
 import React from 'react';
-import type { GameUIProps } from '@nexusgame/game-sdk';
+import { canAct, type GameUIProps } from '@nexusgame/game-sdk';
 import type { TemplateState } from '../logic';
 import styles from './ui.module.css';
 
 const TemplateUI: React.FC<GameUIProps<TemplateState>> = ({
   perspective,
+  actions,
   onAction,
-  isMyTurn,
   readonly,
   metadata,
 }) => {
@@ -14,9 +14,9 @@ const TemplateUI: React.FC<GameUIProps<TemplateState>> = ({
   // 观战者没有 roleId，your_role.identity 为 'Spectator'。
   const roleId = metadata?.roleId ?? your_role.identity;
   const isSpectator = your_role.identity === 'Spectator';
-  const passAction = perspective.action_space_definition.actions.find(
-    (action) => action.action_id === 'pass'
-  );
+  // 能否行动完全由动作列表表达，不再有 isMyTurn 字段。
+  const isMyTurn = canAct(actions);
+  const passAction = actions.actions.find((action) => action.action_id === 'pass');
 
   return (
     <div className={styles.container}>

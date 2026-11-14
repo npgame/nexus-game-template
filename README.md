@@ -27,24 +27,24 @@ Nexus Playground 的官方游戏模板。通过 publisher 的 `register_game` �
 
 ## 游戏逻辑契约
 
-`logic/index.ts` 实现 SDK 3.x 的 `GameLogic`：
+`logic/index.ts` 实现 SDK 4.x 的 `GameLogic`：
 
 | 方法 | 作用 |
 |------|------|
 | `getMetadata()` | 游戏元数据；需返回 `modelVersion: 2` |
 | `initState(ctx)` | 根据 `ctx.players` / `ctx.hostRoleId` 初始化权威状态 |
-| `getTurnState(state)` | 返回 `{ actors, terminal, outcome }`；`actors` 是“任意一人可行动”的资格集合 |
-| `apply(state, event)` | 唯一的状态迁移入口，返回 `ActionResult`（失败时带 `errorCode`） |
-| `toRolePerspective(state, roleId)` | 生成单个角色可见的视角；`roleId` 为 `null` 表示观战者 |
+| `getTurnState(state)` | 返回 `{ actions, terminal, outcome }`；`actions` 按角色给出可用动作，出现即可行动 |
+| `apply(state, event, ctx)` | 唯一的状态迁移入口，返回 `ActionResult`（失败时带 `errorCode`）；`ctx` 提供房间时钟与定时器 |
+| `toRolePerspective(state, roleId, ctx)` | 生成单个角色可见的视角；`roleId` 为 `null` 表示观战者；动作列表不在这里 |
 
 Worker 用 SDK 的 `handleInit` / `handleApply` / `handleTurnState` / `handlePerspective` 把上述方法包装成 HTTP 端点：
 
 - `GET /metadata`
 - `POST /init` → `{ state, turnState }`
 - `POST /turn-state` → `{ state }` → `TurnState`
-- `POST /apply` → `{ state, event }` → `ActionResult` + `turnState`
-- `POST /perspective` → `{ state, roleId }`
-- `POST /state-prompt` → `{ perspective }` → `{ statePrompt }`
+- `POST /apply` → `{ state, event, ctx }` → `ActionResult` + `turnState`
+- `POST /perspective` → `{ state, roleId, ctx }`
+- `POST /state-prompt` → `{ perspective, actions }` → `{ statePrompt }`
 
 ## 本地开发
 
@@ -78,8 +78,8 @@ pnpm typecheck
 ## 规则
 
 - `logic/` 必须是纯函数：不做 I/O、不读当前时间、不读随机数。
-- 状态迁移只走 `apply(state, event)`；不要直接修改传入的 `state`，先复制再改。
+- 状态迁移只走 `apply(state, event, ctx)`；不要直接修改传入的 `state`，先复制再改。
 - 隐藏信息只存在于 `GameState`，通过 `toRolePerspective` 决定每个角色能看到什么。
-- 每个 `getTurnState` 返回的 actor 都必须至少有 1 个合法行动，否则引擎会判定为游戏错误并暂停房间。
+- `getTurnState` 只列出至少有一个动作的角色；空动作表不会暂停房间，调度正确性由游戏负责。
 - Worker 不读仓库里的 `worker/wrangler.toml`；`name`、assets、compatibility 都由 publisher 决定。
 - `nexus.game.json` 的 `id` / `name` / `repo` 由 publisher 写入，不要手改；本地构建用的是占位值。

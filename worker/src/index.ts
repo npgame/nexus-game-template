@@ -5,8 +5,11 @@ import {
   handleInit,
   handlePerspective,
   handleTurnState,
+  type ActionSpec,
+  type ApplyContext,
   type GameEvent,
   type InitContext,
+  type PerspectiveContext,
 } from '@nexusgame/game-sdk';
 import logic from '../../logic/index';
 import type { TemplateState } from '../../logic/index';
@@ -88,29 +91,44 @@ app.post('/turn-state', async (c) => {
 });
 
 app.post('/apply', async (c) => {
-  const body = await c.req.json<{ state: TemplateState; event: GameEvent }>();
+  const body = await c.req.json<{
+    state: TemplateState;
+    event: GameEvent;
+    ctx?: ApplyContext;
+  }>();
   try {
-    return c.json(handleApply(logic, body.state, body.event));
+    // `ctx` 提供房间时钟与待触发定时器；游戏用到时间时必须透传。
+    return c.json(handleApply(logic, body.state, body.event, body.ctx ?? {
+      timers: [],
+      now_ms: 0,
+    }));
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
 });
 
 app.post('/perspective', async (c) => {
-  const body = await c.req.json<{ state: TemplateState; roleId: string | null }>();
+  const body = await c.req.json<{
+    state: TemplateState;
+    roleId: string | null;
+    ctx?: PerspectiveContext;
+  }>();
   try {
-    return c.json(handlePerspective(logic, body.state, body.roleId));
+    return c.json(handlePerspective(logic, body.state, body.roleId, body.ctx ?? {
+      timers: [],
+      now_ms: 0,
+    }));
   } catch (error: any) {
     return c.json({ error: error.message }, 400);
   }
 });
 
 app.post('/state-prompt', async (c) => {
-  const body = await c.req.json<{ perspective: any }>();
+  const body = await c.req.json<{ perspective: any; actions?: ActionSpec }>();
   try {
     const statePrompt =
       typeof logic.generateStatePrompt === 'function'
-        ? logic.generateStatePrompt(body.perspective)
+        ? logic.generateStatePrompt(body.perspective, body.actions ?? { actions: [] })
         : undefined;
     return c.json({ statePrompt });
   } catch (error: any) {

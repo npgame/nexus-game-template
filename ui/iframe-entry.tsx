@@ -10,6 +10,7 @@ import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import type {
   Action,
+  ActionSpec,
   ActMessage,
   GameUIMetadata,
   RolePerspective,
@@ -19,7 +20,7 @@ import TemplateUI from './ui';
 
 interface GameState {
   perspective: RolePerspective;
-  isMyTurn: boolean;
+  actions: ActionSpec;
   readonly: boolean;
   metadata?: GameUIMetadata;
 }
@@ -74,8 +75,8 @@ const IframeApp: React.FC = () => {
   return (
     <TemplateUI
       perspective={gameState.perspective}
+      actions={gameState.actions}
       onAction={handleAction}
-      isMyTurn={gameState.isMyTurn}
       readonly={gameState.readonly}
       metadata={gameState.metadata}
     />
