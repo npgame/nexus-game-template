@@ -12,7 +12,7 @@
     "deploy": "wrangler deploy -c worker/wrangler.toml"
   },
   "dependencies": {
-    "@nexusgame/game-sdk": "^4.0.0"
+    "@nexusgame/game-sdk": "^4.1.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",

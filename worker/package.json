@@ -8,7 +8,7 @@
     "deploy": "wrangler deploy"
   },
   "dependencies": {
-    "@nexusgame/game-sdk": "^4.0.0",
+    "@nexusgame/game-sdk": "^4.1.0",
     "hono": "^4.6.0"
   },
   "devDependencies": {

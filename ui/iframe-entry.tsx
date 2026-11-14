@@ -22,6 +22,9 @@ interface GameState {
   perspective: RolePerspective;
   actions: ActionSpec;
   readonly: boolean;
+  /** Forwarded by hosts on @nexusgame/game-sdk >= 4.1. */
+  phase?: 'lobby' | 'playing' | 'paused';
+  clock?: { now_ms: number; paused: boolean } | null;
   metadata?: GameUIMetadata;
 }
 
@@ -74,11 +77,10 @@ const IframeApp: React.FC = () => {
 
   return (
     <TemplateUI
-      perspective={gameState.perspective}
-      actions={gameState.actions}
+      // Spread so platform additions (`phase`, `clock`, ...) reach the game
+      // component without editing this entry in every game repo.
+      {...gameState}
       onAction={handleAction}
-      readonly={gameState.readonly}
-      metadata={gameState.metadata}
     />
   );
 };

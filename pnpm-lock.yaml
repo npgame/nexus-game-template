@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@nexusgame/game-sdk':
-        specifier: ^4.0.0
-        version: 4.0.0
+        specifier: ^4.1.0
+        version: 4.1.0
     devDependencies:
       '@types/react':
         specifier: ^18.3.3
@@ -43,8 +43,8 @@ importers:
   worker:
     dependencies:
       '@nexusgame/game-sdk':
-        specifier: ^4.0.0
-        version: 4.0.0
+        specifier: ^4.1.0
+        version: 4.1.0
       hono:
         specifier: ^4.6.0
         version: 4.13.14
@@ -1272,8 +1272,8 @@ packages:
     dev: true
     optional: true
 
-  /@nexusgame/game-sdk@4.0.0:
-    resolution: {integrity: sha512-lzVEGsunA05hh1cCnVS/Gqowz3cuHz2bs1QanUXYUCqlgBNV8hUvnWtbiH8PvTZ9mKTBHseCIjGGZpnAg6gEjg==}
+  /@nexusgame/game-sdk@4.1.0:
+    resolution: {integrity: sha512-FAG44n1vvd77f6iY1GRzRQadNxflEUlUPAZnB1eQKf3sQ6iD47Iy1Tml3Sm+yl8UUjO7B/0D0FJBYvBAdLEz2A==}
     dependencies:
       nanoid: 5.1.16
       zod: 3.25.76
